@@ -18,8 +18,10 @@ int same_image(image a, image b){
         if(!within_eps(a.data[i], b.data[i])) 
         {
             printf("The value should be %f, but it is %f! \n", b.data[i], a.data[i]);
+            printf("w %d, h %d, i %d, mine %f, theirs %f \n", a.w, a.h, i, b.data[i], a.data[i]); 
             return 0;
         }
+            
     }
     return 1;
 }
@@ -238,6 +240,7 @@ void test_sobel(){
     image theta = res[1];
     feature_normalize(mag);
     feature_normalize(theta);
+    printf("channels %d %d/n", mag.c, theta.c);
 
     image gt_mag = load_image("figs/magnitude.png");
     image gt_theta = load_image("figs/theta.png");

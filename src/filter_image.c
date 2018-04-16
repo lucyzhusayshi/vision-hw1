@@ -46,17 +46,16 @@ image convolve_image(image im, image filter, int preserve)
         for (int x = 0; x < im.w; x++) {
             for (int z = 0; z < im.c; z++) {
                 int filter_c = filter.c == 1 ? 0 : z;
+                float q = 0;
                 for (int filter_y = 0; filter_y < filter.h; filter_y++) {
                     for (int filter_x = 0; filter_x < filter.w; filter_x++) {
                         float filter_val = filter.data[filter_x + filter_y*filter.w + filter_c*filter.w*filter.h];
                         int y_ = y - filter.h/2 + filter_y;
                         int x_ = x - filter.w/2 + filter_x;
-                        //if (y_ >= 0 && x_ >= 0 && y_ < im.h && x_ < im.w) {
-                            convolved.data[x + y*im.w + z*im.w*im.h] += get_pixel(im, x_, y_, z)*filter_val;
-                            //set_pixel(convolved, x, y, z, convolved.data[x + y*im.w + z*im.w*im.h] + im.data[x_ + y_*im.w + z*im.w*im.h]*filter_val);
-                        //}
+                        q += get_pixel(im, x_, y_, z)*filter_val;
                     }
                 }
+                convolved.data[x + y*im.w + z*im.w*im.h] = q;
             }
         }
     }
@@ -66,10 +65,13 @@ image convolve_image(image im, image filter, int preserve)
     } else {
         image flat = make_image(im.w, im.h, 1);
         for (int h = 0; h < im.h; h++) {
+            
             for (int w = 0; w < im.w; w++) {
+                float q = 0;
                 for (int c = 0; c < im.c; c++) {
-                    flat.data[w + h*im.w] += convolved.data[w + h*im.w + c*im.w*im.h];
+                     q += convolved.data[w + h*im.w + c*im.w*im.h];
                 }
+                flat.data[w + h*im.w] = q;
             }
         }
         return flat;
@@ -125,10 +127,10 @@ image make_emboss_filter()
 }
 
 // Question 2.2.1: Which of these filters should we use preserve when we run our convolution and which ones should we not? Why?
-// Answer: TODO
+// Answer: We should use preserve on sharpen and emboss and not highpass because we want to preserve color for sharpen and emboss. 
 
 // Question 2.2.2: Do we have to do any post-processing for the above filters? Which ones and why?
-// Answer: TODO
+// Answer: I had to do some post-processing (mainly clamping) for all filters above for them to look normal because applying the filters would lead to values outside the accepted range and loop to random/unintended colors. 
 
 image make_gaussian_filter(float sigma)
 {
@@ -223,6 +225,8 @@ void feature_normalize(image im)
         }
     }
     float range = max - min;
+    printf("max %f, min %f, range %f \n", max, min, range);
+
     if (range == 0) {
         for (int x = 0; x < im.w; x++) {
             for (int y = 0; y < im.h; y++) {
@@ -238,7 +242,10 @@ void feature_normalize(image im)
                 for (int z = 0; z < im.c; z++) {
                     int i = x + y*im.w + z*im.w*im.h;
                     im.data[i] -= min;
+                    if (i == 4276) {printf("-min %f ", im.data[i]);}
                     im.data[i] /= range;
+
+                    if (i == 4276) {printf("/range %f \n", im.data[i]);}
                 }
             }
         }
@@ -252,21 +259,39 @@ image *sobel_image(image im)
     res[0] = make_image(im.w, im.h, 1);
     res[1] = make_image(im.w, im.h, 1);
 
-    image g_x = make_gx_filter();
-    image g_y = make_gy_filter();
+    image filter_g_x = make_gx_filter();
+    image filter_g_y = make_gy_filter();
 
-    g_x = convolve_image(im, g_x, 0);
-    g_y = convolve_image(im, g_y, 0);
+    image g_x = convolve_image(im, filter_g_x, 0);
+    image g_y = convolve_image(im, filter_g_y, 0);
 
     for (int x = 0; x < im.w; x++) {
         for (int y = 0; y < im.h; y++) {
             int i = x + y*im.w;
-            res[0].data[i] = sqrtf(powf(g_x.data[i], 2) + powf(g_y.data[i], 2));
-            // res[1].data[i] = g_x.data[i] == 0 || g_y.data[i] == 0 ? 0 : atan2f(g_y.data[i], g_x.data[i]);
-            res[1].data[i] = atan2f(g_x.data[i], g_y.data[i]);
-            // if (y==3 && x == 29) {
-            // printf("i %d gx %f", i, g_x.data[i]);
+            res[0].data[i] = sqrtf(pow(g_x.data[i], 2) + pow(g_y.data[i], 2));
+            res[1].data[i] = atan2(g_y.data[i], g_x.data[i]);
+            // if (g_x.data[i] != 0 && g_y.data[i] == 0) {
+            //     res[1].data[i] = atanf(g_x.data[i]/g_y.data[i]);
             // }
+            
+            
+            // if (g_y.data[i] < 0 && g_x.data[i] < 0 && g_x.data[i] < -0.5) {
+            //     res[1].data[i] = M_PI;
+            // }
+            // if (g_y.data[i] < 0 && g_x.data[i] < 0 && g_x.data[i] > -0.8 && g_y.data[i] > -0.00001) {
+            //     res[1].data[i] = M_PI;
+            // }
+            // if (g_y.data[i] >= (float)0.0 && g_y.data[i] <= 0.00000020 && g_x.data[i] > -0.8 && g_x.data[i]) {
+            //     res[1].data[i] *= -1;
+            // }
+            // // } else if (g_y.data[i] < 0 && g_x.data[i] > -1 && g_x.data[i] > ) {
+
+            // }
+            // if (i == 8587) {
+            //     printf("theta %f x %f y %f30 \n",atan2f(g_y.data[i], g_x.data[i]),g_x.data[i],g_y.data[i]);
+            //     printf("x/y %f \n", atan2f(0, 0));
+            // }
+
         }
     }
     return res;
@@ -275,5 +300,19 @@ image *sobel_image(image im)
 image colorize_sobel(image im)
 {
     // TODO
-    return make_image(1,1,1);
+    image *sobel = sobel_image(im);
+    clamp_image(sobel[0]);
+    image preserve = make_image(im.w,im.h,im.c);
+    image invert = make_image(im.w,im.h,im.c);
+    feature_normalize(sobel[0]);
+    for (int xy = 0; xy < im.w*im.h; xy++) {
+        for (int i = 0; i < im.c; i++) {
+            invert.data[xy+i*im.w*im.h] = 1-im.data[i*im.w*im.h + xy];
+            preserve.data[xy+i*im.w*im.h] = sobel[0].data[xy]; 
+        }
+    }
+    clamp_image(preserve);
+    image sub = sub_image(preserve, invert);
+    clamp_image(sub);
+    return sub;
 }

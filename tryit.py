@@ -93,3 +93,25 @@ res = sobel_image(im)
 mag = res[0]
 feature_normalize(mag)
 save_image(mag, "magnitude")
+
+im = load_image("data/dog.jpg")
+solor = colorize_sobel(im)
+save_image(solor, "color_sobel")
+
+im = load_image("data/dog.jpg")
+f = make_highpass_filter()
+blur = convolve_image(im, f, 0)
+clamp_image(blur)
+save_image(blur, "highpass")
+
+im = load_image("data/dog.jpg")
+f = make_emboss_filter()
+blur = convolve_image(im, f, 1)
+clamp_image(blur)
+save_image(blur, "emboss")
+
+im = load_image("data/dog.jpg")
+f = make_sharpen_filter()
+blur = convolve_image(im, f, 1)
+clamp_image(blur)
+save_image(blur, "sharpen")
